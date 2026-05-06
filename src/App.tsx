@@ -18,16 +18,29 @@ function dayToDate(days: number): Date {
 const CATEGORIES = ['house', 'misc', 'interest', 'total'] as const
 type Category = typeof CATEGORIES[number]
 
-const CATEGORY_COLORS: Record<Category, string> = {
-  house: '#3b82f6',
-  misc: '#f59e0b',
-  interest: '#ef4444',
-  total: '#8b5cf6',
-}
-
 const PAYMENT_TYPES = ['cash', 'cpf', 'total'] as const
 type PaymentTypes = typeof PAYMENT_TYPES[number]
-const COLUMN_ACCENT = '#10b981'
+
+const ACCENT = '#8b5cf6'
+
+const ENTITY_COLORS: Record<'jackie' | 'xin' | 'dj' | 'ocbc', string> = {
+  jackie: '#3b82f6',
+  xin: '#f59e0b',
+  dj: '#ef4444',
+  ocbc: '#8b5cf6',
+}
+
+function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
+  const a = ((angle - 90) * Math.PI) / 180
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
+}
+
+function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(cx, cy, r, endAngle)
+  const end = polarToCartesian(cx, cy, r, startAngle)
+  const largeArc = endAngle - startAngle <= 180 ? '0' : '1'
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y} Z`
+}
 
 type SheetData = {
   dates: string[];
@@ -109,7 +122,7 @@ function App() {
   }
 
   const selectedDate = dayToDate(value)
-  const accent = CATEGORY_COLORS[category]
+  const accent = ACCENT
   const pct = Math.round((value / TOTAL_DAYS) * 100)
   const idx = data.dates.findLastIndex(d => d <= selectedDate.toISOString())
 
@@ -151,8 +164,7 @@ function App() {
       cash: rowCash(k),
       cpf: rowCpf(k),
     })),
-    { label: 'total', ...sumRows(['jackie', 'xin', 'dj']), emphasize: true },
-    { label: 'total (with loan)', ...sumRows(['jackie', 'xin', 'dj', 'ocbc']) },
+    { label: 'total', ...sumRows(['jackie', 'xin', 'dj', 'ocbc']) },
   ]
 
   return (
@@ -275,9 +287,9 @@ function App() {
                 width: '100%',
                 padding: '0.5rem 0.6rem',
                 borderRadius: '0.6rem',
-                border: `1.5px solid ${COLUMN_ACCENT}`,
-                background: `${COLUMN_ACCENT}22`,
-                color: COLUMN_ACCENT,
+                border: `1.5px solid ${ACCENT}`,
+                background: `${ACCENT}22`,
+                color: ACCENT,
                 fontWeight: 600,
                 fontSize: '0.875rem',
                 cursor: 'pointer',
@@ -327,6 +339,55 @@ function App() {
             </table>
           </div>
         )}
+
+        {/* Contribution pie chart */}
+        {idx >= 0 && (() => {
+          const entities = ['jackie', 'xin', 'dj', 'ocbc'] as const
+          const slices = entities.map(k => {
+            const row = tableRows.find(r => r.label === k)!
+            const value = column === 'cash' ? row.cash : column === 'cpf' ? row.cpf : row.cash + row.cpf
+            return { label: k, value, color: ENTITY_COLORS[k] }
+          })
+          const total = slices.reduce((s, d) => s + d.value, 0)
+          if (total <= 0) return null
+
+          const nonZero = slices.filter(d => d.value > 0)
+          let angle = 0
+
+          return (
+            <div style={{ marginTop: '1.5rem' }}>
+              <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
+                {column} contribution to {category}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <svg viewBox="0 0 100 100" style={{ width: 120, height: 120, flexShrink: 0 }}>
+                  {nonZero.length === 1 ? (
+                    <circle cx={50} cy={50} r={48} fill={nonZero[0].color} />
+                  ) : (
+                    slices.map(d => {
+                      if (d.value === 0) return null
+                      const start = angle
+                      const end = angle + (d.value / total) * 360
+                      angle = end
+                      return <path key={d.label} d={arcPath(50, 50, 48, start, end)} fill={d.color} />
+                    })
+                  )}
+                </svg>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem', flex: 1 }}>
+                  {slices.map(d => (
+                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+                      <span style={{ color: '#94a3b8', flex: 1 }}>{d.label}</span>
+                      <span style={{ color: '#f1f5f9', fontWeight: 500 }}>
+                        {total > 0 ? Math.round((d.value / total) * 100) : 0}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
       </div>
     </div>
