@@ -539,23 +539,20 @@ function App() {
             'cashVsCpf',
             <>cash vs cpf for {category}</>,
             [
-              { label: 'cash', value: totalRow.cash, color: '#10b981' },
-              { label: 'cpf', value: totalRow.cpf, color: '#06b6d4' },
+              { label: 'cash', value: totalRow.cash, color: '#f59e0b' },
+              { label: 'cpf', value: totalRow.cpf, color: '#ec4899' },
             ]
           )
         })()}
 
         {(['jackie', 'xin'] as const).map(person => {
           const row = tableRows.find(r => r.label === person)!
-          const palette = person === 'jackie'
-            ? { cash: '#f59e0b', cpf: '#ec4899' }
-            : { cash: '#a78bfa', cpf: '#fb7185' }
           return renderPieBlock(
             person,
             <>{person} cash vs cpf for {category}</>,
             [
-              { label: 'cash', value: row.cash, color: palette.cash },
-              { label: 'cpf', value: row.cpf, color: palette.cpf },
+              { label: 'cash', value: row.cash, color: '#f59e0b' },
+              { label: 'cpf', value: row.cpf, color: '#ec4899' },
             ]
           )
         })}
