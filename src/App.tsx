@@ -25,6 +25,10 @@ const CATEGORY_COLORS: Record<Category, string> = {
   total: '#8b5cf6',
 }
 
+const PAYMENT_TYPES = ['cash', 'cpf', 'total'] as const
+type PaymentTypes = typeof PAYMENT_TYPES[number]
+const COLUMN_ACCENT = '#10b981'
+
 type SheetData = {
   dates: string[];
   jackieCashHouse: number[];
@@ -46,6 +50,7 @@ type SheetData = {
 function App() {
   const [value, setValue] = useState(TOTAL_DAYS)
   const [category, setCategory] = useState<Category>('total')
+  const [column, setColumn] = useState<PaymentTypes>('total')
   const [data, setData] = useState<SheetData>({
     dates: [],
     jackieCashHouse: [],
@@ -230,35 +235,61 @@ function App() {
           </div>
         </div>
 
-        {/* Category pills */}
-        <div>
-          <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
-            Category
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-            {CATEGORIES.map(cat => {
-              const active = cat === category
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setCategory(cat)}
-                  style={{
-                    padding: '0.5rem',
-                    borderRadius: '0.6rem',
-                    border: `1.5px solid ${active ? CATEGORY_COLORS[cat] : '#334155'}`,
-                    background: active ? `${CATEGORY_COLORS[cat]}22` : 'transparent',
-                    color: active ? CATEGORY_COLORS[cat] : '#94a3b8',
-                    fontWeight: active ? 600 : 400,
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {cat}
-                </button>
-              )
-            })}
+        {/* Category & Payment Type dropdowns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div>
+            <p style={{ margin: '0 0 0.4rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
+              Category
+            </p>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value as Category)}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.6rem',
+                borderRadius: '0.6rem',
+                border: `1.5px solid ${accent}`,
+                background: `${accent}22`,
+                color: accent,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                outline: 'none',
+                appearance: 'none',
+              }}
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat} style={{ background: '#1e293b', color: '#f1f5f9' }}>{cat}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <p style={{ margin: '0 0 0.4rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
+              Payment Type
+            </p>
+            <select
+              value={column}
+              onChange={e => setColumn(e.target.value as PaymentTypes)}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.6rem',
+                borderRadius: '0.6rem',
+                border: `1.5px solid ${COLUMN_ACCENT}`,
+                background: `${COLUMN_ACCENT}22`,
+                color: COLUMN_ACCENT,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                outline: 'none',
+                appearance: 'none',
+              }}
+            >
+              {PAYMENT_TYPES.map(col => (
+                <option key={col} value={col} style={{ background: '#1e293b', color: '#f1f5f9' }}>{col}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -272,27 +303,26 @@ function App() {
               <thead>
                 <tr style={{ color: '#64748b', textAlign: 'right' }}>
                   <th style={{ padding: '0.35rem 0.4rem', textAlign: 'left', fontWeight: 500 }}></th>
-                  <th style={{ padding: '0.35rem 0.4rem', fontWeight: 500 }}>cash</th>
-                  <th style={{ padding: '0.35rem 0.4rem', fontWeight: 500 }}>cpf</th>
-                  <th style={{ padding: '0.35rem 0.4rem', fontWeight: 500 }}>total</th>
+                  <th style={{ padding: '0.35rem 0.4rem', fontWeight: 500 }}>contribution</th>
                 </tr>
               </thead>
               <tbody style={{ color: '#f1f5f9' }}>
-                {tableRows.map(row => (
-                  <tr
-                    key={row.label}
-                    style={{
-                      textAlign: 'right',
-                      borderTop: row.emphasize ? '2px solid #475569' : '1px solid #334155',
-                      fontWeight: row.emphasize ? 600 : 400,
-                    }}
-                  >
-                    <td style={{ padding: '0.4rem', textAlign: 'left', color: '#94a3b8' }}>{row.label}</td>
-                    <td style={{ padding: '0.4rem' }}>{fmt(row.cash)}</td>
-                    <td style={{ padding: '0.4rem' }}>{fmt(row.cpf)}</td>
-                    <td style={{ padding: '0.4rem' }}>{fmt(row.cash + row.cpf)}</td>
-                  </tr>
-                ))}
+                {tableRows.map(row => {
+                  const v = column === 'cash' ? row.cash : column === 'cpf' ? row.cpf : row.cash + row.cpf
+                  return (
+                    <tr
+                      key={row.label}
+                      style={{
+                        textAlign: 'right',
+                        borderTop: row.emphasize ? '2px solid #475569' : '1px solid #334155',
+                        fontWeight: row.emphasize ? 600 : 400,
+                      }}
+                    >
+                      <td style={{ padding: '0.4rem', textAlign: 'left', color: '#94a3b8' }}>{row.label}</td>
+                      <td style={{ padding: '0.4rem' }}>{fmt(v)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
