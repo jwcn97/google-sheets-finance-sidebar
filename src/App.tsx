@@ -64,6 +64,7 @@ function App() {
   const [value, setValue] = useState(TOTAL_DAYS)
   const [category, setCategory] = useState<Category>('total')
   const [column, setColumn] = useState<PaymentTypes>('total')
+  const [excludeOcbc, setExcludeOcbc] = useState(false)
   const [data, setData] = useState<SheetData>({
     dates: [],
     jackieCashHouse: [],
@@ -113,10 +114,6 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const onDateChange = (date: Date) => {
-    console.log('TEST', date);
-  }
-
   const handleSliderChange = (days: number) => {
     setValue(days);
   }
@@ -158,13 +155,17 @@ function App() {
     return { cash, cpf }
   }
 
+  const entities: RowKey[] = excludeOcbc
+    ? ['jackie', 'xin', 'dj']
+    : ['jackie', 'xin', 'dj', 'ocbc']
+
   const tableRows: { label: string; cash: number; cpf: number; emphasize?: boolean }[] = [
-    ...(['jackie', 'xin', 'dj', 'ocbc'] as const).map(k => ({
+    ...entities.map(k => ({
       label: k,
       cash: rowCash(k),
       cpf: rowCpf(k),
     })),
-    { label: 'total', ...sumRows(['jackie', 'xin', 'dj', 'ocbc']) },
+    { label: 'total', ...sumRows(entities) },
   ]
 
   return (
@@ -239,7 +240,6 @@ function App() {
             max={TOTAL_DAYS}
             value={value}
             onChange={e => handleSliderChange(Number(e.target.value))}
-            onPointerUp={e => onDateChange(dayToDate(Number((e.target as HTMLInputElement).value)))}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
             <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{formatDate(START_DATE)}</span>
@@ -247,35 +247,8 @@ function App() {
           </div>
         </div>
 
-        {/* Category & Payment Type dropdowns */}
+        {/* Payment Type & Category dropdowns */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-          <div>
-            <p style={{ margin: '0 0 0.4rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
-              Category
-            </p>
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value as Category)}
-              style={{
-                width: '100%',
-                padding: '0.5rem 0.6rem',
-                borderRadius: '0.6rem',
-                border: `1.5px solid ${accent}`,
-                background: `${accent}22`,
-                color: accent,
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-                outline: 'none',
-                appearance: 'none',
-              }}
-            >
-              {CATEGORIES.map(cat => (
-                <option key={cat} value={cat} style={{ background: '#1e293b', color: '#f1f5f9' }}>{cat}</option>
-              ))}
-            </select>
-          </div>
           <div>
             <p style={{ margin: '0 0 0.4rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
               Payment Type
@@ -303,7 +276,72 @@ function App() {
               ))}
             </select>
           </div>
+          <div>
+            <p style={{ margin: '0 0 0.4rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
+              Category
+            </p>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value as Category)}
+              style={{
+                width: '100%',
+                padding: '0.5rem 0.6rem',
+                borderRadius: '0.6rem',
+                border: `1.5px solid ${accent}`,
+                background: `${accent}22`,
+                color: accent,
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                outline: 'none',
+                appearance: 'none',
+              }}
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat} style={{ background: '#1e293b', color: '#f1f5f9' }}>{cat}</option>
+              ))}
+            </select>
+          </div>
         </div>
+
+        {/* Exclude OCBC toggle */}
+        <button
+          onClick={() => setExcludeOcbc(!excludeOcbc)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: '1rem',
+            padding: 0,
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Exclude OCBC loan</span>
+          <span style={{
+            position: 'relative',
+            display: 'inline-block',
+            width: 36,
+            height: 20,
+            borderRadius: 10,
+            background: excludeOcbc ? ACCENT : '#334155',
+            transition: 'background 0.15s',
+          }}>
+            <span style={{
+              position: 'absolute',
+              top: 2,
+              left: excludeOcbc ? 18 : 2,
+              width: 16,
+              height: 16,
+              borderRadius: '50%',
+              background: '#f1f5f9',
+              transition: 'left 0.15s',
+            }} />
+          </span>
+        </button>
 
         {/* Snapshot values */}
         {idx >= 0 && (
@@ -342,7 +380,6 @@ function App() {
 
         {/* Contribution pie chart */}
         {idx >= 0 && (() => {
-          const entities = ['jackie', 'xin', 'dj', 'ocbc'] as const
           const slices = entities.map(k => {
             const row = tableRows.find(r => r.label === k)!
             const value = column === 'cash' ? row.cash : column === 'cpf' ? row.cpf : row.cash + row.cpf
