@@ -394,7 +394,7 @@ function App() {
           return (
             <div style={{ marginTop: '1.5rem' }}>
               <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
-                {column} contribution to {category}
+                {column} contribution{category === 'total' ? '' : ` to ${category}`}
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <svg viewBox="0 0 100 100" style={{ width: 120, height: 120, flexShrink: 0 }}>
@@ -417,6 +417,54 @@ function App() {
                       <span style={{ color: '#94a3b8', flex: 1 }}>{d.label}</span>
                       <span style={{ color: '#f1f5f9', fontWeight: 500 }}>
                         {total > 0 ? Math.round((d.value / total) * 100) : 0}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Cash vs CPF pie chart */}
+        {idx >= 0 && (() => {
+          const totalRow = tableRows[tableRows.length - 1]
+          const slices = [
+            { label: 'cash', value: totalRow.cash, color: '#10b981' },
+            { label: 'cpf', value: totalRow.cpf, color: '#06b6d4' },
+          ]
+          const total = slices.reduce((s, d) => s + d.value, 0)
+          if (total <= 0) return null
+
+          const nonZero = slices.filter(d => d.value > 0)
+          let angle = 0
+
+          return (
+            <div style={{ marginTop: '1.5rem' }}>
+              <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
+                cash vs cpf for {category}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <svg viewBox="0 0 100 100" style={{ width: 120, height: 120, flexShrink: 0 }}>
+                  {nonZero.length === 1 ? (
+                    <circle cx={50} cy={50} r={48} fill={nonZero[0].color} />
+                  ) : (
+                    slices.map(d => {
+                      if (d.value === 0) return null
+                      const start = angle
+                      const end = angle + (d.value / total) * 360
+                      angle = end
+                      return <path key={d.label} d={arcPath(50, 50, 48, start, end)} fill={d.color} />
+                    })
+                  )}
+                </svg>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem', flex: 1 }}>
+                  {slices.map(d => (
+                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+                      <span style={{ color: '#94a3b8', flex: 1 }}>{d.label}</span>
+                      <span style={{ color: '#f1f5f9', fontWeight: 500 }}>
+                        {Math.round((d.value / total) * 100)}%
                       </span>
                     </div>
                   ))}
