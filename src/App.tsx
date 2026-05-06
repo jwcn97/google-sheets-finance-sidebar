@@ -66,6 +66,14 @@ function App() {
   const [column, setColumn] = useState<PaymentTypes>('total')
   const [excludeOcbc, setExcludeOcbc] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [tableOpen, setTableOpen] = useState(false)
+  const [chartsOpen, setChartsOpen] = useState<Record<string, boolean>>({
+    contribution: false,
+    cashVsCpf: false,
+    jackie: false,
+    xin: false,
+  })
+  const toggleChart = (key: string) => setChartsOpen(s => ({ ...s, [key]: !s[key] }))
   const [data, setData] = useState<SheetData>({
     dates: [],
     jackieCashHouse: [],
@@ -170,6 +178,102 @@ function App() {
     })),
     { label: 'total', ...sumRows(entities), emphasize: true },
   ]
+
+  type Slice = { label: string; value: number; color: string }
+  const renderPieBlock = (id: string, title: React.ReactNode, slices: Slice[]) => {
+    const total = slices.reduce((s, d) => s + d.value, 0)
+    if (!loading && total <= 0) return null
+
+    const open = chartsOpen[id]
+    const nonZero = slices.filter(d => d.value > 0)
+    let angle = 0
+
+    return (
+      <div key={id} style={{ marginTop: '1.5rem' }}>
+        <div
+          onClick={() => toggleChart(id)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            userSelect: 'none',
+            marginBottom: '0.6rem',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
+            {title}
+          </p>
+          <span style={{
+            display: 'inline-block',
+            fontSize: '0.55rem',
+            color: '#64748b',
+            transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}>▶</span>
+        </div>
+
+        {/* Expanded view */}
+        <div style={{
+          maxHeight: open ? '300px' : 0,
+          overflow: 'hidden',
+          transition: 'max-height 0.3s ease',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {loading ? (
+              <div className="shimmer" style={{ width: 120, height: 120, borderRadius: '50%', display: 'block', flexShrink: 0 }} />
+            ) : (
+              <svg viewBox="0 0 100 100" style={{ width: 120, height: 120, flexShrink: 0 }}>
+                {nonZero.length === 1 ? (
+                  <circle cx={50} cy={50} r={48} fill={nonZero[0].color} />
+                ) : (
+                  slices.map(d => {
+                    if (d.value === 0) return null
+                    const start = angle
+                    const end = angle + (d.value / total) * 360
+                    angle = end
+                    return <path key={d.label} d={arcPath(50, 50, 48, start, end)} fill={d.color} />
+                  })
+                )}
+              </svg>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem', flex: 1 }}>
+              {slices.map(d => (
+                <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+                  <span style={{ color: '#94a3b8', flex: 1 }}>{d.label}</span>
+                  <span style={{ color: '#f1f5f9', fontWeight: 500 }}>
+                    {loading ? <span className="shimmer" style={{ width: 28 }} /> : `${total > 0 ? Math.round((d.value / total) * 100) : 0}%`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Collapsed view */}
+        <div style={{
+          maxHeight: open ? 0 : '120px',
+          overflow: 'hidden',
+          transition: 'max-height 0.3s ease',
+        }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem 0.9rem', fontSize: '0.75rem' }}>
+            {slices.map(d => (
+              <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+                <span style={{ color: '#94a3b8' }}>{d.label}:</span>
+                <span style={{ color: '#f1f5f9' }}>
+                  {loading
+                    ? <span className="shimmer" style={{ width: 32 }} />
+                    : `${total > 0 ? Math.round((d.value / total) * 100) : 0}%`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{
@@ -361,186 +465,100 @@ function App() {
         </button>
 
         {/* Snapshot values */}
-        <div style={{ marginTop: '1.5rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-            <tbody style={{ color: '#f1f5f9' }}>
-              {tableRows.map((row, i) => {
-                const v = column === 'cash' ? row.cash : column === 'cpf' ? row.cpf : row.cash + row.cpf
-                return (
-                  <tr
-                    key={row.label}
-                    style={{
-                      textAlign: 'right',
-                      borderTop: i === 0 ? 'none' : row.emphasize ? '2px solid #475569' : '1px solid #334155',
-                      fontWeight: row.emphasize ? 700 : 400,
-                    }}
-                  >
-                    <td style={{ padding: '0.4rem', textAlign: 'left', color: '#94a3b8' }}>{row.label}</td>
-                    <td style={{ padding: '0.4rem' }}>
-                      {loading ? <span className="shimmer" /> : fmt(v)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div style={{ marginTop: '1.5rem', fontSize: '0.8rem', color: '#f1f5f9' }}>
+          {/* Breakdown rows (collapsible) */}
+          <div style={{
+            maxHeight: tableOpen ? '500px' : 0,
+            overflow: 'hidden',
+            transition: 'max-height 0.3s ease',
+          }}>
+            {tableRows.filter(r => r.label !== 'total').map((row, i) => {
+              const v = column === 'cash' ? row.cash : column === 'cpf' ? row.cpf : row.cash + row.cpf
+              return (
+                <div
+                  key={row.label}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '0.4rem',
+                    borderTop: i === 0 ? 'none' : '1px solid #334155',
+                  }}
+                >
+                  <span style={{ color: '#94a3b8' }}>{row.label}</span>
+                  <span>{loading ? <span className="shimmer" /> : fmt(v)}</span>
+                </div>
+              )
+            })}
+          </div>
+          {/* Total row (always visible, click to toggle) */}
+          {(() => {
+            const totalRow = tableRows.find(r => r.label === 'total')!
+            const v = column === 'cash' ? totalRow.cash : column === 'cpf' ? totalRow.cpf : totalRow.cash + totalRow.cpf
+            return (
+              <div
+                onClick={() => setTableOpen(!tableOpen)}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.4rem',
+                  borderTop: '2px solid #475569',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#94a3b8' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    fontSize: '0.6em',
+                    transform: tableOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s',
+                  }}>▶</span>
+                  total
+                </span>
+                <span>{loading ? <span className="shimmer" /> : fmt(v)}</span>
+              </div>
+            )
+          })()}
         </div>
 
-        {/* Contribution pie chart */}
-        {(() => {
-          const slices = entities.map(k => {
+        {renderPieBlock(
+          'contribution',
+          <>{column} contribution{category === 'total' ? '' : ` to ${category}`}</>,
+          entities.map(k => {
             const row = tableRows.find(r => r.label === k)!
             const value = column === 'cash' ? row.cash : column === 'cpf' ? row.cpf : row.cash + row.cpf
             return { label: k, value, color: ENTITY_COLORS[k] }
           })
-          const total = slices.reduce((s, d) => s + d.value, 0)
-          if (!loading && total <= 0) return null
+        )}
 
-          const nonZero = slices.filter(d => d.value > 0)
-          let angle = 0
-
-          return (
-            <div style={{ marginTop: '1.5rem' }}>
-              <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
-                {column} contribution{category === 'total' ? '' : ` to ${category}`}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                {loading ? (
-                  <div className="shimmer" style={{ width: 120, height: 120, borderRadius: '50%', display: 'block', flexShrink: 0 }} />
-                ) : (
-                  <svg viewBox="0 0 100 100" style={{ width: 120, height: 120, flexShrink: 0 }}>
-                    {nonZero.length === 1 ? (
-                      <circle cx={50} cy={50} r={48} fill={nonZero[0].color} />
-                    ) : (
-                      slices.map(d => {
-                        if (d.value === 0) return null
-                        const start = angle
-                        const end = angle + (d.value / total) * 360
-                        angle = end
-                        return <path key={d.label} d={arcPath(50, 50, 48, start, end)} fill={d.color} />
-                      })
-                    )}
-                  </svg>
-                )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem', flex: 1 }}>
-                  {slices.map(d => (
-                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
-                      <span style={{ color: '#94a3b8', flex: 1 }}>{d.label}</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: 500 }}>
-                        {loading ? <span className="shimmer" style={{ width: 28 }} /> : `${total > 0 ? Math.round((d.value / total) * 100) : 0}%`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )
-        })()}
-
-        {/* Cash vs CPF pie chart */}
         {(() => {
           const totalRow = tableRows[tableRows.length - 1]
-          const slices = [
-            { label: 'cash', value: totalRow.cash, color: '#10b981' },
-            { label: 'cpf', value: totalRow.cpf, color: '#06b6d4' },
-          ]
-          const total = slices.reduce((s, d) => s + d.value, 0)
-          if (!loading && total <= 0) return null
-
-          const nonZero = slices.filter(d => d.value > 0)
-          let angle = 0
-
-          return (
-            <div style={{ marginTop: '1.5rem' }}>
-              <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
-                cash vs cpf for {category}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                {loading ? (
-                  <div className="shimmer" style={{ width: 120, height: 120, borderRadius: '50%', display: 'block', flexShrink: 0 }} />
-                ) : (
-                  <svg viewBox="0 0 100 100" style={{ width: 120, height: 120, flexShrink: 0 }}>
-                    {nonZero.length === 1 ? (
-                      <circle cx={50} cy={50} r={48} fill={nonZero[0].color} />
-                    ) : (
-                      slices.map(d => {
-                        if (d.value === 0) return null
-                        const start = angle
-                        const end = angle + (d.value / total) * 360
-                        angle = end
-                        return <path key={d.label} d={arcPath(50, 50, 48, start, end)} fill={d.color} />
-                      })
-                    )}
-                  </svg>
-                )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem', flex: 1 }}>
-                  {slices.map(d => (
-                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
-                      <span style={{ color: '#94a3b8', flex: 1 }}>{d.label}</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: 500 }}>
-                        {loading ? <span className="shimmer" style={{ width: 28 }} /> : `${Math.round((d.value / total) * 100)}%`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          return renderPieBlock(
+            'cashVsCpf',
+            <>cash vs cpf for {category}</>,
+            [
+              { label: 'cash', value: totalRow.cash, color: '#10b981' },
+              { label: 'cpf', value: totalRow.cpf, color: '#06b6d4' },
+            ]
           )
         })()}
 
-        {/* Per-person cash vs CPF pie charts */}
-        {(['jackie', 'xin'] as const).map(person => (() => {
+        {(['jackie', 'xin'] as const).map(person => {
           const row = tableRows.find(r => r.label === person)!
-          const slices = [
-            { label: 'cash', value: row.cash, color: '#10b981' },
-            { label: 'cpf', value: row.cpf, color: '#06b6d4' },
-          ]
-          const total = slices.reduce((s, d) => s + d.value, 0)
-          if (!loading && total <= 0) return null
-
-          const nonZero = slices.filter(d => d.value > 0)
-          let angle = 0
-
-          return (
-            <div key={person} style={{ marginTop: '1.5rem' }}>
-              <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
-                {person} cash vs cpf for {category}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                {loading ? (
-                  <div className="shimmer" style={{ width: 120, height: 120, borderRadius: '50%', display: 'block', flexShrink: 0 }} />
-                ) : (
-                  <svg viewBox="0 0 100 100" style={{ width: 120, height: 120, flexShrink: 0 }}>
-                    {nonZero.length === 1 ? (
-                      <circle cx={50} cy={50} r={48} fill={nonZero[0].color} />
-                    ) : (
-                      slices.map(d => {
-                        if (d.value === 0) return null
-                        const start = angle
-                        const end = angle + (d.value / total) * 360
-                        angle = end
-                        return <path key={d.label} d={arcPath(50, 50, 48, start, end)} fill={d.color} />
-                      })
-                    )}
-                  </svg>
-                )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.75rem', flex: 1 }}>
-                  {slices.map(d => (
-                    <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
-                      <span style={{ color: '#94a3b8', flex: 1 }}>{d.label}</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: 500 }}>
-                        {loading ? <span className="shimmer" style={{ width: 28 }} /> : `${Math.round((d.value / total) * 100)}%`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+          const palette = person === 'jackie'
+            ? { cash: '#f59e0b', cpf: '#ec4899' }
+            : { cash: '#a78bfa', cpf: '#fb7185' }
+          return renderPieBlock(
+            person,
+            <>{person} cash vs cpf for {category}</>,
+            [
+              { label: 'cash', value: row.cash, color: palette.cash },
+              { label: 'cpf', value: row.cpf, color: palette.cpf },
+            ]
           )
-        })())}
+        })}
 
       </div>
     </div>
