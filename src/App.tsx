@@ -1,7 +1,8 @@
-import { useState } from 'react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from 'react'
 
-const START_DATE = new Date('2025-07-19')
-const END_DATE = new Date('2026-05-05')
+const START_DATE = new Date('2025-07-19T00:00:00')
+const END_DATE = new Date('2026-05-05T00:00:00')
 const TOTAL_DAYS = Math.round((END_DATE.getTime() - START_DATE.getTime()) / 86400000)
 
 function formatDate(date: Date): string {
@@ -24,13 +25,94 @@ const CATEGORY_COLORS: Record<Category, string> = {
   total: '#8b5cf6',
 }
 
+type SheetData = {
+  dates: string[];
+  jackieCashHouse: number[];
+  xinCashHouse: number[];
+  dj: number[];
+  ocbc: number[];
+  jackieCPFHouse: number[];
+  xinCPFHouse: number[];
+  jackieCashMisc: number[];
+  xinCashMisc: number[];
+  jackieCPFMisc: number[];
+  xinCPFMisc: number[];
+  jackieCashInterest: number[];
+  xinCashInterest: number[];
+  jackieCPFInterest: number[];
+  xinCPFInterest: number[];
+};
+
 function App() {
   const [value, setValue] = useState(TOTAL_DAYS)
   const [category, setCategory] = useState<Category>('total')
+  const [data, setData] = useState<SheetData>({
+    dates: [],
+    jackieCashHouse: [],
+    xinCashHouse: [],
+    dj: [],
+    ocbc: [],
+    jackieCPFHouse: [],
+    xinCPFHouse: [],
+    jackieCashMisc: [],
+    xinCashMisc: [],
+    jackieCPFMisc: [],
+    xinCPFMisc: [],
+    jackieCashInterest: [],
+    xinCashInterest: [],
+    jackieCPFInterest: [],
+    xinCPFInterest: [],
+  });
+
+  const getDataFromSheets = () => {
+    return new Promise<SheetData>((resolve, reject) => {
+      const runner = (window as any).google?.script?.run;
+
+      if (!runner) {
+        reject(new Error("google.script.run not available"));
+        return;
+      }
+
+      runner
+        .withSuccessHandler((result: any) => resolve(result))
+        .withFailureHandler((error: any) => reject(error))
+        .getChartData();
+    });
+  }
+
+  const fetchData = async () => {
+    try {
+      const res = await getDataFromSheets();
+      setData(res);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const onDateChange = (date: Date) => {
+    console.log('TEST', date);
+  }
+
+  const handleSliderChange = (days: number) => {
+    setValue(days);
+  }
 
   const selectedDate = dayToDate(value)
   const accent = CATEGORY_COLORS[category]
   const pct = Math.round((value / TOTAL_DAYS) * 100)
+  const idx = data.dates.findLastIndex(d => d <= selectedDate.toISOString())
+  console.log('TEST selected', selectedDate, 'idx', idx);
+  const snapshot = idx >= 0
+    ? (Object.entries(data) as [keyof SheetData, number[] | string[]][])
+        .filter(([k]) => k !== 'dates')
+        .map(([k, arr]) => [k, (arr as number[])[idx]] as const)
+    : []
 
   return (
     <div style={{
@@ -103,7 +185,8 @@ function App() {
             min={0}
             max={TOTAL_DAYS}
             value={value}
-            onChange={e => setValue(Number(e.target.value))}
+            onChange={e => handleSliderChange(Number(e.target.value))}
+            onPointerUp={e => onDateChange(dayToDate(Number((e.target as HTMLInputElement).value)))}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
             <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{formatDate(START_DATE)}</span>
@@ -142,6 +225,23 @@ function App() {
             })}
           </div>
         </div>
+
+        {/* Snapshot values */}
+        {snapshot.length > 0 && (
+          <div style={{ marginTop: '1.5rem' }}>
+            <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
+              Values
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+              {snapshot.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                  <span style={{ color: '#94a3b8' }}>{k}</span>
+                  <span style={{ color: '#f1f5f9', fontWeight: 500 }}>{v?.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
