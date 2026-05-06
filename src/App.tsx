@@ -107,12 +107,48 @@ function App() {
   const accent = CATEGORY_COLORS[category]
   const pct = Math.round((value / TOTAL_DAYS) * 100)
   const idx = data.dates.findLastIndex(d => d <= selectedDate.toISOString())
-  console.log('TEST selected', selectedDate, 'idx', idx);
-  const snapshot = idx >= 0
-    ? (Object.entries(data) as [keyof SheetData, number[] | string[]][])
-        .filter(([k]) => k !== 'dates')
-        .map(([k, arr]) => [k, (arr as number[])[idx]] as const)
-    : []
+
+  const cellValue = (person: 'jackie' | 'xin', type: 'Cash' | 'CPF'): number => {
+    if (idx < 0) return 0
+    if (category === 'total') {
+      return (['House', 'Misc', 'Interest'] as const).reduce((sum, cat) => {
+        const key = `${person}${type}${cat}` as keyof SheetData
+        return sum + ((data[key] as number[])[idx] ?? 0)
+      }, 0)
+    }
+    const cat = category[0].toUpperCase() + category.slice(1)
+    const key = `${person}${type}${cat}` as keyof SheetData
+    return (data[key] as number[])[idx] ?? 0
+  }
+
+  const loanValue = (source: 'dj' | 'ocbc', type: 'Cash' | 'CPF'): number => {
+    if (idx < 0) return 0
+    if (type !== 'Cash') return 0
+    if (category !== 'house' && category !== 'total') return 0
+    return data[source][idx] ?? 0
+  }
+
+  const fmt = (n: number | null | undefined) =>
+    n == null || Number.isNaN(n) ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+
+  type RowKey = 'jackie' | 'xin' | 'dj' | 'ocbc'
+  const rowCash = (k: RowKey) => k === 'dj' || k === 'ocbc' ? loanValue(k, 'Cash') : cellValue(k, 'Cash')
+  const rowCpf = (k: RowKey) => k === 'dj' || k === 'ocbc' ? loanValue(k, 'CPF') : cellValue(k, 'CPF')
+  const sumRows = (keys: RowKey[]) => {
+    const cash = keys.reduce((s, k) => s + rowCash(k), 0)
+    const cpf = keys.reduce((s, k) => s + rowCpf(k), 0)
+    return { cash, cpf }
+  }
+
+  const tableRows: { label: string; cash: number; cpf: number; emphasize?: boolean }[] = [
+    ...(['jackie', 'xin', 'dj', 'ocbc'] as const).map(k => ({
+      label: k,
+      cash: rowCash(k),
+      cpf: rowCpf(k),
+    })),
+    { label: 'total', ...sumRows(['jackie', 'xin', 'dj']), emphasize: true },
+    { label: 'total (with loan)', ...sumRows(['jackie', 'xin', 'dj', 'ocbc']) },
+  ]
 
   return (
     <div style={{
@@ -227,19 +263,38 @@ function App() {
         </div>
 
         {/* Snapshot values */}
-        {snapshot.length > 0 && (
+        {idx >= 0 && (
           <div style={{ marginTop: '1.5rem' }}>
             <p style={{ margin: '0 0 0.6rem', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b' }}>
               Values
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-              {snapshot.map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                  <span style={{ color: '#94a3b8' }}>{k}</span>
-                  <span style={{ color: '#f1f5f9', fontWeight: 500 }}>{v?.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+              <thead>
+                <tr style={{ color: '#64748b', textAlign: 'right' }}>
+                  <th style={{ padding: '0.35rem 0.4rem', textAlign: 'left', fontWeight: 500 }}></th>
+                  <th style={{ padding: '0.35rem 0.4rem', fontWeight: 500 }}>cash</th>
+                  <th style={{ padding: '0.35rem 0.4rem', fontWeight: 500 }}>cpf</th>
+                  <th style={{ padding: '0.35rem 0.4rem', fontWeight: 500 }}>total</th>
+                </tr>
+              </thead>
+              <tbody style={{ color: '#f1f5f9' }}>
+                {tableRows.map(row => (
+                  <tr
+                    key={row.label}
+                    style={{
+                      textAlign: 'right',
+                      borderTop: row.emphasize ? '2px solid #475569' : '1px solid #334155',
+                      fontWeight: row.emphasize ? 600 : 400,
+                    }}
+                  >
+                    <td style={{ padding: '0.4rem', textAlign: 'left', color: '#94a3b8' }}>{row.label}</td>
+                    <td style={{ padding: '0.4rem' }}>{fmt(row.cash)}</td>
+                    <td style={{ padding: '0.4rem' }}>{fmt(row.cpf)}</td>
+                    <td style={{ padding: '0.4rem' }}>{fmt(row.cash + row.cpf)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
