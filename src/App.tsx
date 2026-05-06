@@ -64,7 +64,7 @@ function App() {
   const [value, setValue] = useState(TOTAL_DAYS)
   const [category, setCategory] = useState<Category>('total')
   const [column, setColumn] = useState<PaymentTypes>('total')
-  const [excludeOcbc, setExcludeOcbc] = useState(false)
+  const [includeOcbc, setIncludeOcbc] = useState(false)
   const [loading, setLoading] = useState(true)
   const [tableOpen, setTableOpen] = useState(false)
   const [chartsOpen, setChartsOpen] = useState<Record<string, boolean>>({
@@ -166,9 +166,9 @@ function App() {
     return { cash, cpf }
   }
 
-  const entities: RowKey[] = excludeOcbc
-    ? ['jackie', 'xin', 'dj']
-    : ['jackie', 'xin', 'dj', 'ocbc']
+  const entities: RowKey[] = includeOcbc
+    ? ['jackie', 'xin', 'dj', 'ocbc']
+    : ['jackie', 'xin', 'dj']
 
   const tableRows: { label: string; cash: number; cpf: number; emphasize?: boolean }[] = [
     ...entities.map(k => ({
@@ -428,7 +428,7 @@ function App() {
 
         {/* Exclude OCBC toggle */}
         <button
-          onClick={() => setExcludeOcbc(!excludeOcbc)}
+          onClick={() => setIncludeOcbc(!includeOcbc)}
           style={{
             width: '100%',
             display: 'flex',
@@ -441,20 +441,20 @@ function App() {
             cursor: 'pointer',
           }}
         >
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Exclude OCBC loan</span>
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Include OCBC loan</span>
           <span style={{
             position: 'relative',
             display: 'inline-block',
             width: 36,
             height: 20,
             borderRadius: 10,
-            background: excludeOcbc ? ACCENT : '#334155',
+            background: includeOcbc ? ACCENT : '#334155',
             transition: 'background 0.15s',
           }}>
             <span style={{
               position: 'absolute',
               top: 2,
-              left: excludeOcbc ? 18 : 2,
+              left: includeOcbc ? 18 : 2,
               width: 16,
               height: 16,
               borderRadius: '50%',
