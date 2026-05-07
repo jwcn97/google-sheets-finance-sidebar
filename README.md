@@ -1,73 +1,42 @@
-# React + TypeScript + Vite
+# google-sheets-finance-sidebar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + TypeScript sidebar for a personal Google Sheets workbook that tracks shared house/misc/interest payments across Jackie, Xin, DJ and an OCBC loan, split by cash vs CPF.
 
-Currently, two official plugins are available:
+The app is bundled into a **single HTML file** by [vite-plugin-singlefile](https://github.com/richardtallent/vite-plugin-singlefile) and pasted into Apps Script as the sidebar's HTML service template, where it talks back to the spreadsheet via `google.script.run`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+![sidebar screenshot](example.png)
 
-## React Compiler
+## What it shows
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Pick a date on the slider (range is hard-coded in [src/App.tsx:4-5](src/App.tsx#L4-L5)) and the sidebar shows the cumulative snapshot at that point in time:
 
-## Expanding the ESLint configuration
+- **Payment Type** — cash, cpf, or total
+- **Category** — house, misc, interest, or total
+- **Include OCBC loan** toggle — folds the OCBC loan row into the table and contribution chart
+- **Breakdown table** — per-entity values, collapsible under the total row
+- **Pie charts** — contribution share, cash vs CPF for the selected category, and per-person cash vs CPF (each collapsible)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Data flow
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. The Apps Script backend exposes `getChartData()`, which returns a `SheetData` object with parallel arrays keyed by date — one array per `{entity}{paymentType}{category}` combination (see the type at [src/App.tsx:45-61](src/App.tsx#L45-L61)).
+2. On mount, [App.tsx](src/App.tsx) calls `google.script.run.getChartData()` and stores the result.
+3. The slider value maps to a date; the component finds the latest row at or before that date with `findLastIndex` and sums the relevant fields based on the current category / payment type / OCBC toggle.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+The Apps Script side (the `getChartData` function and the sheet schema it reads) lives in the bound Apps Script project, not in this repo.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Develop
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Local dev runs without a Google Sheets backend — `google.script.run` will be `undefined`, the fetch rejects, and the UI stays in its loading state. To exercise the rendered output during development, stub the runner or temporarily seed `data` with sample values.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Build & deploy
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+This runs `tsc -b && vite build && pbcopy < dist/index.html` — type-checks, bundles into a single inlined `dist/index.html`, and copies the result to the macOS clipboard. Paste it into the Apps Script project's HTML file (the one served by `HtmlService.createHtmlOutputFromFile(...).setTitle(...)` in the sidebar trigger), then reopen the sidebar in Sheets.
